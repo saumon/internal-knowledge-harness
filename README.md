@@ -275,6 +275,7 @@ To work on the UI, run `npm start`. The server reads `public/index.html` on ever
 
 | Symptom | Fix |
 |---|---|
+| *Port 3737 is already in use* | Another copy of the server is running. Stop it (`lsof -ti tcp:3737` shows its process id), or use `PORT=3738 npm start`. |
 | *Could not start claude* | Make sure `claude --version` works in the same terminal, or set `CLAUDE_BIN` to its full path. |
 | *Notion is not connected* | See [Connecting Notion](#connecting-notion); `claude mcp list` must show Notion as connected. |
 | *No sources configured* | `cp .kb/sources.example.json .kb/sources.json` and add your page URLs. |

@@ -312,6 +312,13 @@ const server = http.createServer(async (req, res) => {
   sendJson(res, 404, { error: 'Not found' });
 });
 
+server.on('error', (err) => {
+  if (err.code !== 'EADDRINUSE') throw err;
+  console.error(`Port ${PORT} is already in use, probably by another copy of this server.`);
+  console.error(`Stop it, or start on another port: PORT=${PORT + 1} npm start`);
+  process.exit(1);
+});
+
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`Knowledge harness running at http://localhost:${PORT} (model: ${MODEL})`);
 });
