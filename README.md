@@ -31,6 +31,7 @@ It runs on your machine: a single-page website drives [Claude Code](https://docs
 - [Development](#development)
 - [Design decisions](#design-decisions)
 - [Limitations](#limitations)
+- [FAQ](#faq)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -270,6 +271,32 @@ To work on the UI, run `npm start`. The server reads `public/index.html` on ever
 - **Deleted pages are reported, not removed** from `context/notion/`.
 - **Redaction is best-effort.** It is pattern- and model-based, not a guarantee. Review what you sync.
 - **Single user, single machine.** There's no authentication beyond being bound to localhost.
+
+## FAQ
+
+### Why keep a local copy instead of asking Claude to search Notion through the connector?
+
+For a one-off question, the connector on its own is often enough, and it is simpler. The local copy is worth it when you need guarantees the connector doesn't give you:
+
+1. **"Not found" really means not found.** Through the connector, Claude runs a Notion search and reads the top results. Without Notion AI (Business or Enterprise plans), that search is keyword-based: if your wording doesn't match the page, the page is never found, and Claude may fill the gap from general knowledge. Here, `kb-answer` searches *every* synced file and reads the matches in full. When the answer isn't there, it says so, even if it knows the answer from elsewhere.
+2. **Secrets stay out of answers.** Notion pages often hold API keys, admin passwords or recovery codes. Through the connector, Claude reads the raw page and can quote them back to you. Here they are replaced with `[REDACTED]` before anything is stored.
+3. **The scope is yours.** The connector sees your whole workspace, including old archives and drafts. Here only the root pages listed in `.kb/sources.json` exist for the assistant, so a stale page can't leak into an answer.
+4. **Answering has no power.** The connector exposes dozens of tools, including ones that edit and delete pages, so hostile instructions hidden in a page could reach a session that has them. Here answering runs read-only, with no network, no connectors and no write access.
+5. **You can correct it.** A 👎 plus a note adds the missing fact for every future answer, without touching Notion. `.kb/feedback.jsonl` shows which questions keep failing. The connector keeps no record of your corrections.
+
+### What does the local copy cost?
+
+- **Freshness.** A page edited in Notion is only picked up after the next sync.
+- **Sync time.** Every sync re-reads each page in scope, because the connector can't list "what changed since". Expect a few minutes per batch of 25 pages.
+- **Data on disk.** Your synced pages, including any personal data they contain, are stored in plain text on your machine. They are git-ignored, but they are still on your disk.
+- **Upkeep.** It is a project to maintain. The connector needs nothing.
+
+### So when should I use which?
+
+- **Use the connector directly** for occasional questions about recent content anywhere in Notion, such as "what did I write yesterday?".
+- **Use the harness** when you want answers that are verifiable and never invented, over a scope you chose, with no risk of a password ending up in an answer, and that you can correct.
+
+The two work well side by side: the harness for reference questions, the connector for whatever changed today.
 
 ## Troubleshooting
 
