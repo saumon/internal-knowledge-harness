@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowledge</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 10h10l2-4h12v22H4z' fill='%232B44C2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #EDF0F3;
+    --sheet: #F8F9FB;
+    --ink: #18202B;
+    --muted: #5B6676;
+    --rule: #D3D9E1;
+    --pen: #2B44C2;
+    --pen-soft: #E1E6FA;
+    --good: #2E7D5B;
+    --bad: #9A3B2E;
+    --sans: "Schibsted Grotesk", system-ui, sans-serif;
+    --serif: "Literata", Georgia, serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #12161C; --sheet: #1A2029; --ink: #E6EAF0; --muted: #97A2B2;
+      --rule: #2C3441; --pen: #93A6FF; --pen-soft: #232C47; --good: #6CC49A; --bad: #E58C7B;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 400 16px/1.5 var(--sans);
+  }
+  button, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
+  a { color: var(--pen); }
+
+  .wrap { max-width: 44rem; margin: 0 auto; padding-inline: 16px; }
+
+  /* ---------- header ---------- */
+  header { padding-block: 2.5rem 1.25rem; border-bottom: 1px solid var(--rule); }
+  .head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+  h1 { margin: 0; font: 700 1.75rem/1.1 var(--sans); letter-spacing: -0.02em; }
+  #status { margin: .5rem 0 0; color: var(--muted); font-size: .9375rem; }
+
+  .btn {
+    border: 1px solid var(--rule); background: var(--sheet); border-radius: 6px;
+    padding: .45rem .9rem; font-weight: 500; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-primary { background: var(--pen); border-color: var(--pen); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.08); border-color: var(--pen); }
+  @media (prefers-color-scheme: dark) { .btn-primary { color: #10131A; } }
+
+  /* ---------- sync panel ---------- */
+  #sync-panel { margin-top: 1rem; padding: .875rem 1rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; }
+  #sync-panel[hidden] { display: none; }
+  .sync-top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  #sync-counts { font-weight: 500; }
+  #sync-line { margin: .25rem 0 0; color: var(--muted); font-size: .9375rem; overflow-wrap: anywhere; }
+  #sync-summary { margin-top: .5rem; font-size: .9375rem; }
+  #sync-summary ul { margin: .25rem 0; padding-left: 1.1rem; }
+
+  /* ---------- thread ---------- */
+  main { padding-block: 1.5rem 9rem; }
+  .empty { color: var(--muted); max-width: 34rem; }
+  .empty p { margin: 0 0 .5rem; }
+
+  .turn { padding: 1.5rem 0; border-bottom: 1px solid var(--rule); }
+  .turn:last-child { border-bottom: 0; }
+  .q { margin: 0 0 .75rem; font-weight: 500; font-size: 1.0625rem; }
+  .a { font: 400 1.0625rem/1.65 var(--serif); max-width: 40rem; }
+  .a p, .a ul, .a ol { margin: 0 0 .85rem; }
+  .a ul, .a ol { padding-left: 1.25rem; }
+  .a h3, .a h4 { font: 600 1.0625rem/1.4 var(--serif); margin: 1rem 0 .4rem; }
+  .a code { font-size: .875em; background: var(--pen-soft); padding: .05em .3em; border-radius: 3px; }
+  .a table { border-collapse: collapse; margin: 0 0 .85rem; font-size: .9375rem; display: block; overflow-x: auto; }
+  .a th, .a td { border: 1px solid var(--rule); padding: .3rem .55rem; text-align: left; vertical-align: top; }
+  .a sup a { text-decoration: none; font: 500 .7rem var(--sans); padding: 0 .15em; }
+  .a .missing { border-left: 3px solid var(--muted); padding-left: .75rem; color: var(--muted); }
+  .a.not-found { color: var(--muted); font-style: italic; }
+
+  .thinking { color: var(--muted); font-size: .9375rem; }
+  .thinking::before {
+    content: ""; display: inline-block; width: .5rem; height: .5rem; margin-right: .5rem;
+    border-radius: 50%; background: var(--pen); animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: .25; } }
+  .error { color: var(--bad); }
+  .meta { color: var(--muted); font-size: .8125rem; margin-top: .25rem; }
+
+  /* Sources: index-card tabs sitting on a rule. The one bold element on the page. */
+  .sources { display: flex; flex-wrap: wrap; gap: .375rem; margin-top: .25rem; padding-top: .75rem; border-bottom: 2px solid var(--pen); }
+  .tab {
+    display: inline-flex; align-items: baseline; gap: .4rem; max-width: 100%;
+    padding: .4rem .75rem .35rem; margin-bottom: -2px;
+    background: var(--sheet); border: 1px solid var(--rule); border-bottom: 2px solid var(--pen);
+    border-radius: 8px 8px 0 0; text-decoration: none; color: var(--ink); font-size: .875rem;
+  }
+  .tab:hover { background: var(--pen-soft); }
+  .tab b { font: 500 .75rem var(--sans); color: var(--pen); }
+  .tab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab small { color: var(--muted); }
+
+  /* ---------- feedback ---------- */
+  .feedback { display: flex; align-items: center; gap: .375rem; margin-top: .75rem; color: var(--muted); font-size: .875rem; }
+  .vote {
+    width: 2.25rem; height: 2rem; border: 1px solid var(--rule); border-radius: 6px;
+    background: transparent; cursor: pointer; font-size: 1rem; line-height: 1;
+  }
+  .vote:hover { border-color: var(--muted); }
+  .vote[aria-pressed="true"][data-rating="up"] { border-color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .vote[aria-pressed="true"][data-rating="down"] { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .fb-note { margin-left: .25rem; }
+
+  .add-context { margin-top: .75rem; padding: .875rem 1rem 1rem; background: var(--sheet); border: 1px solid var(--rule); border-left: 3px solid var(--bad); border-radius: 8px; }
+  .add-context label { display: block; font-weight: 500; }
+  .add-context .hint { margin: .15rem 0 .6rem; color: var(--muted); font-size: .875rem; }
+  .add-context textarea { width: 100%; min-height: 6rem; max-height: none; resize: vertical; font: 400 1rem/1.5 var(--serif); }
+  .add-context .row { display: flex; gap: .5rem; margin-top: .6rem; }
+  .saved { margin-top: .75rem; display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; font-size: .9375rem; }
+  .saved code { font-size: .8125rem; color: var(--muted); }
+
+  /* ---------- composer ---------- */
+  .composer {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(transparent, var(--paper) 1.25rem);
+    padding-block: 1.5rem 1rem;
+  }
+  .composer form { display: flex; gap: .5rem; align-items: flex-end; }
+  textarea {
+    flex: 1; resize: none; min-height: 2.75rem; max-height: 10rem;
+    padding: .65rem .8rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet);
+    line-height: 1.4;
+  }
+  textarea:focus { border-color: var(--pen); outline: none; }
+  .composer .btn { height: 2.75rem; }
+
+  @media (prefers-reduced-motion: reduce) { .thinking::before { animation: none; } }
+</style>
+</head>
+<body>
+  <header class="wrap">
+    <div class="head-row">
+      <h1>Knowledge</h1>
+      <button id="sync-btn" class="btn" type="button">Sync</button>
+    </div>
+    <p id="status">Loading…</p>
+    <section id="sync-panel" hidden aria-live="polite">
+      <div class="sync-top">
+        <div id="sync-counts">Syncing</div>
+        <button id="stop-btn" class="btn" type="button">Stop</button>
+      </div>
+      <p id="sync-line"></p>
+      <div id="sync-summary"></div>
+    </section>
+  </header>
+
+  <main class="wrap" id="thread" aria-live="polite">
+    <div class="empty" id="empty">
+      <p>Ask anything your synced Notion pages cover.</p>
+      <p>Answers come only from those pages, with the pages they used listed underneath. If something isn’t there, you’ll be told.</p>
+    </div>
+  </main>
+
+  <div class="composer">
+    <form class="wrap" id="ask-form">
+      <label for="q" hidden>Your question</label>
+      <textarea id="q" rows="1" placeholder="Ask a question" required></textarea>
+      <button class="btn btn-primary" type="submit" id="send-btn">Send</button>
+    </form>
+  </div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ---------- tiny, safe markdown (input is escaped first) ----------
+function inline(s, cite) {
+  const codes = [];
+  s = s.replace(/`([^`]+)`/g, (_, c) => (codes.push(c), `\u0000${codes.length - 1}\u0000`));
+  s = s.replace(/\[(context\/[^\]\s]+\.md)\]/g, (_, f) => cite(f));
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[i]}</code>`);
+}
+
+function render(md, cite) {
+  const blocks = esc(md.trim()).split(/\n{2,}/);
+  return blocks.map((b) => {
+    const lines = b.split('\n');
+    if (/^\*\*Sources:\*\*/.test(b)) return '';                       // shown as tabs instead
+    if (/^\*\*Not in your context:\*\*/.test(b)) return `<p class="missing">${inline(b, cite)}</p>`;
+    if (lines.every((l) => /^\s*[-*] /.test(l))) return `<ul>${lines.map((l) => `<li>${inline(l.replace(/^\s*[-*] /, ''), cite)}</li>`).join('')}</ul>`;
+    if (lines.every((l) => /^\s*\d+\. /.test(l))) return `<ol>${lines.map((l) => `<li>${inline(l.replace(/^\s*\d+\. /, ''), cite)}</li>`).join('')}</ol>`;
+    if (/^#{1,4} /.test(b)) return `<h3>${inline(b.replace(/^#+ /, ''), cite)}</h3>`;
+    if (lines.length > 1 && lines.every((l) => /^\|.*\|$/.test(l.trim()))) {
+      const rows = lines.filter((l) => !/^\|[\s:|-]+\|$/.test(l.trim()))
+        .map((l) => l.trim().slice(1, -1).split('|').map((c) => inline(c.trim(), cite)));
+      return `<table><tr>${rows[0].map((c) => `<th>${c}</th>`).join('')}</tr>${rows.slice(1).map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+    }
+    return `<p>${lines.map((l) => inline(l, cite)).join('<br>')}</p>`;
+  }).join('');
+}
+
+// ---------- streaming ndjson ----------
+async function stream(res, onEvent) {
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i); buf = buf.slice(i + 1);
+      if (line.trim()) onEvent(JSON.parse(line));
+    }
+  }
+}
+
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+
+// ---------- status ----------
+function ago(iso) {
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  if (m < 48 * 60) return `${Math.round(m / 60)} h ago`;
+  return `${Math.round(m / 1440)} days ago`;
+}
+
+function showStatus(s) {
+  const parts = [];
+  parts.push(s.pages ? `${s.pages} pages synced from Notion` : 'No pages synced yet. Press Sync to pull them from Notion');
+  if (s.notes) parts.push(`${s.notes} added by you`);
+  if (s.pending) parts.push(`${s.pending} waiting for the next sync`);
+  let text = parts.join(', ') + '.';
+  if (s.lastRun) text += ` Last sync ${ago(s.lastRun.finished_at)}${s.lastRun.status === 'aborted' ? ' (stopped)' : ''}.`;
+  $('#status').textContent = text;
+  $('#sync-btn').disabled = s.syncing;
+  $('#sync-btn').textContent = s.syncing ? 'Syncing…' : s.pending ? 'Continue sync' : 'Sync';
+}
+
+const refreshStatus = () => fetch('/api/status').then((r) => r.json()).then((s) => (showStatus(s), s));
+
+// ---------- sync ----------
+let syncTimer;
+async function followSync() {
+  const panel = $('#sync-panel');
+  panel.hidden = false;
+  $('#stop-btn').hidden = false;
+  $('#sync-summary').innerHTML = '';
+  const counts = { saved: 0, skipped: 0, failed: 0 };
+  const started = Date.now();
+  const paint = () => {
+    const s = Math.round((Date.now() - started) / 1000);
+    $('#sync-counts').textContent = `Syncing for ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}: ${counts.saved} saved, ${counts.skipped} unchanged${counts.failed ? `, ${counts.failed} failed` : ''}`;
+  };
+  clearInterval(syncTimer); syncTimer = setInterval(paint, 1000); paint();
+
+  const res = await fetch('/api/sync/events');
+  await stream(res, (ev) => {
+    if (ev.type === 'step') {
+      if (ev.kind in counts) counts[ev.kind]++;
+      $('#sync-line').textContent = ev.text;
+      paint();
+    } else if (ev.type === 'done') {
+      clearInterval(syncTimer);
+      $('#stop-btn').hidden = true;
+      $('#sync-counts').textContent = ev.stopped ? 'Sync stopped' : ev.ok ? 'Sync finished' : 'Sync failed';
+      $('#sync-line').textContent = '';
+      $('#sync-summary').innerHTML = render(ev.markdown || '', (f) => esc(f));
+    } else if (ev.type === 'status') {
+      showStatus(ev.status);
+    }
+  });
+  clearInterval(syncTimer);
+  refreshStatus();
+}
+
+$('#sync-btn').addEventListener('click', async () => {
+  $('#sync-btn').disabled = true;
+  const r = await post('/api/sync');
+  if (r.status === 202 || r.status === 409) { refreshStatus(); followSync(); }
+  else $('#sync-btn').disabled = false;
+});
+
+$('#stop-btn').addEventListener('click', () => {
+  $('#stop-btn').disabled = true;
+  $('#sync-line').textContent = 'Stopping…';
+  post('/api/sync/stop').finally(() => ($('#stop-btn').disabled = false));
+});
+
+// ---------- ask ----------
+function sourceTabs(sources) {
+  if (!sources.length) return '';
+  return `<nav class="sources" aria-label="Sources">${sources.map((s, i) => {
+    const label = `<b>${i + 1}</b><span>${esc(s.title)}</span>${s.file.startsWith('context/feedback/') ? '<small>your note</small>' : ''}`;
+    return s.url
+      ? `<a class="tab" href="${esc(s.url)}" target="_blank" rel="noopener" title="Open in Notion">${label}</a>`
+      : `<span class="tab" title="${esc(s.file)}">${label}</span>`;
+  }).join('')}</nav>`;
+}
+
+function renderAnswer(ev) {
+  const index = new Map(ev.sources.map((s, i) => [s.file, i + 1]));
+  const cite = (f) => (index.has(f) ? `<sup><a href="#" data-src="${index.get(f)}" aria-label="Source ${index.get(f)}">${index.get(f)}</a></sup>` : '');
+  const notFound = /^I couldn['’]t find that in your context\.?$/.test(ev.markdown.trim());
+  return `<div class="a${notFound ? ' not-found' : ''}">${render(ev.markdown, cite)}</div>${sourceTabs(ev.sources)}
+    <div class="feedback" role="group" aria-label="Rate this answer">
+      <button class="vote" type="button" data-rating="up" aria-pressed="false" aria-label="Good answer">👍</button>
+      <button class="vote" type="button" data-rating="down" aria-pressed="false" aria-label="Wrong or incomplete answer">👎</button>
+      <span class="fb-note">${(ev.ms / 1000).toFixed(0)} s</span>
+    </div>
+    <div class="fb-extra"></div>`;
+}
+
+// ---------- feedback ----------
+const answers = new Map(); // id -> { question, markdown, sources }
+
+function contextForm(id) {
+  const a = answers.get(id);
+  const hint = a.notFound ? 'Your pages had nothing on this.' : 'Correct it or fill the gap.';
+  return `<form class="add-context">
+    <label for="ctx-${id}">What should the answer have said?</label>
+    <p class="hint">${hint} This is saved as a note in your context and used in future answers.</p>
+    <textarea id="ctx-${id}" required placeholder="Write the facts as you'd want them found next time."></textarea>
+    <div class="row">
+      <button class="btn btn-primary" type="submit">Save note</button>
+      <button class="btn" type="button" data-skip>Skip</button>
+    </div>
+  </form>`;
+}
+
+$('#thread').addEventListener('click', async (e) => {
+  const vote = e.target.closest('.vote');
+  if (!vote) return;
+  const turn = vote.closest('.turn');
+  const id = turn.dataset.id;
+  const a = answers.get(id);
+  const rating = vote.dataset.rating;
+  turn.querySelectorAll('.vote').forEach((b) => b.setAttribute('aria-pressed', String(b === vote)));
+  const note = turn.querySelector('.fb-note');
+  const extra = turn.querySelector('.fb-extra');
+
+  // Open the note form right away so typing isn't lost while the rating saves.
+  if (rating === 'up') extra.innerHTML = '';
+  else if (!extra.querySelector('.add-context, .saved')) {
+    extra.innerHTML = contextForm(id);
+    extra.querySelector('textarea').focus();
+  }
+
+  const r = await post('/api/feedback', { id, rating, question: a.question, answer: a.markdown, sources: a.sources.map((s) => s.file) });
+  note.textContent = !r.ok ? 'Couldn’t save your rating. Is the server running?' : rating === 'up' ? 'Thanks, noted.' : 'Noted.';
+});
+
+$('#thread').addEventListener('submit', async (e) => {
+  const form = e.target.closest('.add-context');
+  if (!form) return;
+  e.preventDefault();
+  const turn = form.closest('.turn');
+  const id = turn.dataset.id;
+  const text = form.querySelector('textarea').value.trim();
+  if (!text) return;
+  const btn = form.querySelector('[type=submit]');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const r = await post('/api/feedback/context', { id, question: answers.get(id).question, text });
+  const res = await r.json();
+  if (!r.ok) { btn.disabled = false; btn.textContent = 'Save note'; form.querySelector('.hint').textContent = res.error; return; }
+  form.parentElement.innerHTML = `<div class="saved">
+    <span>Saved to your context${res.redacted ? `, with ${res.redacted} secret${res.redacted > 1 ? 's' : ''} hidden` : ''}.</span>
+    <code>${esc(res.file)}</code>
+    <button class="btn" type="button" data-ask-again>Ask again</button>
+  </div>`;
+  refreshStatus();
+});
+
+$('#thread').addEventListener('click', (e) => {
+  if (e.target.matches('[data-skip]')) e.target.closest('.fb-extra').innerHTML = '';
+  if (e.target.matches('[data-ask-again]')) ask(answers.get(e.target.closest('.turn').dataset.id).question);
+});
+
+$('#ask-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const question = $('#q').value.trim();
+  if (!question) return;
+  $('#q').value = ''; autosize();
+  ask(question);
+});
+
+async function ask(question) {
+  $('#empty')?.remove();
+
+  const turn = document.createElement('article');
+  turn.className = 'turn';
+  turn.innerHTML = `<p class="q">${esc(question)}</p><div class="body"><p class="thinking">Looking through your pages</p></div>`;
+  $('#thread').append(turn);
+  turn.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const body = turn.querySelector('.body');
+
+  try {
+    const res = await post('/api/ask', { question });
+    if (!res.ok) throw new Error((await res.json()).error);
+    await stream(res, (ev) => {
+      if (ev.type === 'step') body.querySelector('.thinking').textContent = ev.text;
+      if (ev.type === 'answer') {
+        const notFound = /^I couldn['’]t find that in your context\.?$/.test(ev.markdown.trim());
+        answers.set(ev.id, { question, markdown: ev.markdown, sources: ev.sources, notFound });
+        turn.dataset.id = ev.id;
+        body.innerHTML = renderAnswer(ev);
+      }
+      if (ev.type === 'error') body.innerHTML = `<p class="error">${esc(ev.text)}</p>`;
+    });
+  } catch (err) {
+    body.innerHTML = `<p class="error">${esc(err.message || 'The server did not respond. Is server.mjs still running?')}</p>`;
+  }
+}
+
+// Citation number -> flash the matching source tab.
+$('#thread').addEventListener('click', (e) => {
+  const a = e.target.closest('sup a[data-src]');
+  if (!a) return;
+  e.preventDefault();
+  const tab = a.closest('.turn').querySelectorAll('.tab')[a.dataset.src - 1];
+  tab?.focus();
+});
+
+// Enter sends, Shift+Enter adds a line.
+const q = $('#q');
+function autosize() { q.style.height = 'auto'; q.style.height = Math.min(q.scrollHeight, 160) + 'px'; }
+q.addEventListener('input', autosize);
+q.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#ask-form').requestSubmit(); }
+});
+
+refreshStatus().then((s) => { if (s.syncing) followSync(); });
+q.focus();
+</script>
+</body>
+</html>

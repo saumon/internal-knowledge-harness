@@ -1,0 +1,14 @@
+{
+  "name": "internal-knowledge-harness",
+  "version": "1.0.0",
+  "description": "Ask questions about your Notion knowledge, answered only from local context by Claude Code, with citations and a feedback loop.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

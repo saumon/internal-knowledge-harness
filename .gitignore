@@ -1,0 +1,18 @@
+# Your knowledge never goes to git: synced Notion pages and your own notes.
+context/notion/*
+context/feedback/*
+!context/**/.gitkeep
+
+# Harness state: run history, ingest ledger, feedback log, your Notion page URLs.
+.kb/*
+!.kb/.gitkeep
+!.kb/sources.example.json
+
+# Local Claude Code settings and OS noise
+.claude/settings.local.json
+node_modules/
+.DS_Store
+*.log
+
+# Browser automation output
+.playwright-mcp/
