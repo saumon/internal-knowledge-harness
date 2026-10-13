@@ -16,6 +16,7 @@ Answer using **only** files under `context/`. Follow the grounding rules in `CLA
 1. **List** — `Glob` `context/**/*.md`. If there are no files (only `.gitkeep`), reply with the not-found line below and stop.
 2. **Search** — `Grep` (case-insensitive) `context/` for the question's key terms, plus obvious synonyms, acronyms and singular/plural forms. Run several searches rather than one.
 3. **Read** — `Read` every file that matched, in full. If `context/` has 15 or fewer files, read them all; small knowledge bases are cheaper to read than to search.
+   - **Databases.** A file with `type: database` in its frontmatter is a Notion database index: one table row per entry, every column included. For lists, statuses, counts or filters ("what's in wip?", "how many…", "which … since March?"), read the index and work from its table. Count rows exactly, and say which column you filtered on. For details about one entry, open the file shown in its Page column; if that column is empty, the entry has no notes beyond the table.
 4. **Answer** — only from what you read.
    - Facts in `context/feedback/` were added by the user to correct or fill gaps. If they conflict with `context/notion/`, prefer the feedback file and mention the conflict.
    - Never use general knowledge to fill a gap, even when you are confident.

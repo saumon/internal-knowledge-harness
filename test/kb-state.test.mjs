@@ -133,3 +133,109 @@ test('sources explains how to configure when missing', () => {
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /sources\.example\.json/);
 });
+
+// ---------- databases ----------
+
+const DB_URL = 'https://app.notion.com/p/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?v=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const rowUrl = (n) => `https://app.notion.com/p/${String(n).padStart(32, 'c')}`;
+const rowKey = (n) => String(n).padStart(32, 'c');
+const dbFile = (rows, extra = {}) => {
+  const f = path.join(root, '.kb/db.json');
+  fs.writeFileSync(f, JSON.stringify({
+    url: DB_URL, title: 'db: Ideas', path: 'Home / Ideas', title_property: 'idea', edited_property: 'update date',
+    columns: ['idea', 'state', 'userDefined:URL', 'update date'], rows, ...extra,
+  }));
+  return f;
+};
+const row = (n, state, edited, extra = {}) => ({ url: rowUrl(n), properties: { idea: `Idea ${n}`, state, 'userDefined:URL': `https://x/${n}`, 'update date': edited, ...extra } });
+const database = (rows, extra) => JSON.parse(kb('database', dbFile(rows, extra)));
+const index = () => fs.readFileSync(path.join(root, 'context/notion/db-ideas-aaaaaaaa.md'), 'utf8');
+
+test('a database gets an index of every row, and rows to fetch are listed', () => {
+  kb('start');
+  const out = database([row(1, 'wip', 't1'), row(2, 'done', 't1')]);
+  assert.equal(out.rows, 2);
+  assert.deepEqual(out.fetch_now, [rowKey(1), rowKey(2)]);
+  assert.equal(out.index, 'context/notion/db-ideas-aaaaaaaa.md', 'database id comes from the path, not the ?v= view id');
+  assert.match(index(), /type: database/);
+  assert.match(index(), /\| idea \| state \| URL \| update date \| Page \|/);
+  assert.match(index(), /\| \[Idea 1\]\(https:\/\/app\.notion\.com\/p\/c+1\) \| wip \| https:\/\/x\/1 \| t1 \|  \|/);
+  assert.equal(fs.existsSync(path.join(root, '.kb/db.json')), false, 'input file is consumed');
+});
+
+test('fetched rows with a body get a file listed in the index; empty rows stay index-only', () => {
+  kb('start');
+  database([row(1, 'wip', 't1'), row(2, 'done', 't1')]);
+  assert.equal(kb('check', rowKey(1), 't1'), 'new');
+  kb('record', rowKey(1), 't1', 'Idea 1', rowUrl(1), page('idea-1'));
+  assert.equal(kb('record-empty', rowKey(2), 't1'), 'recorded (new, index only)');
+  kb('finish');
+  assert.match(index(), /\| wip \| https:\/\/x\/1 \| t1 \| `context\/notion\/idea-1\.md` \|/);
+  assert.deepEqual(lastRun().new, ['Idea 1', 'Idea 2']);
+});
+
+test('the next sync skips unchanged rows without fetching them', () => {
+  kb('start');
+  database([row(1, 'wip', 't1'), row(2, 'done', 't1')]);
+  kb('record', rowKey(1), 't1', 'Idea 1', rowUrl(1), page('idea-1'));
+  kb('record-empty', rowKey(2), 't1');
+  kb('finish');
+
+  kb('start');
+  const out = database([row(1, 'wip', 't1'), row(2, 'done', 't2')]);
+  assert.deepEqual(out.fetch_now, [rowKey(2)], 'only the row whose edit time moved');
+  assert.equal(out.unchanged, 1);
+  assert.equal(kb('check', rowKey(2), 't2'), 'changed');
+});
+
+test('property changes show in the index even before the row is fetched again', () => {
+  kb('start');
+  database([row(1, 'wip', 't1')]);
+  kb('record-empty', rowKey(1), 't1');
+  kb('finish');
+  kb('start');
+  database([row(1, 'done', 't2')]);
+  assert.match(index(), /\| \[Idea 1\]\([^)]+\) \| done \|/);
+});
+
+test('rows beyond the fetch budget are queued for the next run', () => {
+  fs.writeFileSync(path.join(root, '.kb/sources.json'), JSON.stringify({ roots: [{ title: 'Ideas', url: DB_URL }], max_pages: 2 }));
+  kb('start');
+  const out = database([row(1, 'a', 't1'), row(2, 'a', 't1'), row(3, 'a', 't1')]);
+  assert.equal(out.fetch_now.length, 2);
+  assert.equal(out.queued_for_next_run, 1);
+  kb('finish');
+  assert.equal(lastRun().status, 'incomplete');
+  assert.deepEqual(JSON.parse(kb('sources')).resume, [rowKey(3)]);
+  kb('start');
+  assert.equal(kb('check', rowKey(3), 't1'), 'new', 'a queued row is fetched on resume');
+});
+
+test('a row deleted from the database leaves the index and is reported after a full walk', () => {
+  kb('start');
+  database([row(1, 'a', 't1'), row(2, 'a', 't1')]);
+  kb('record-empty', rowKey(1), 't1');
+  kb('record-empty', rowKey(2), 't1');
+  kb('finish');
+  kb('start');
+  database([row(1, 'a', 't1')]);
+  kb('finish');
+  assert.doesNotMatch(index(), /Idea 2/);
+  assert.deepEqual(lastRun().not_found_in_notion, ['Idea 2']);
+});
+
+test('index cells are escaped and redacted', () => {
+  kb('start');
+  database([row(1, 'a | b', 't1', { idea: '**Bold [x]**', 'userDefined:URL': 'https://x/?token=abc123' })]);
+  const md = index();
+  assert.match(md, /\| \[Bold \\\[x\\\]\]\(/);
+  assert.match(md, /\| a \\\| b \|/);
+  assert.match(md, /\?token=\[REDACTED\]/);
+});
+
+test('record-empty refuses pages that are not database rows', () => {
+  kb('start');
+  const r = kbFails('record-empty', 'p1', 't1');
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /not a known database row/);
+});

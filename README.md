@@ -40,6 +40,7 @@ It runs on your machine: a single-page website drives [Claude Code](https://docs
 - **Grounded answers.** Answers come only from `context/`. Every claim cites its page, and each source opens in Notion. Out-of-scope questions get one fixed reply: *"I couldn't find that in your context."*
 - **Honest partial answers.** If your pages cover part of a question, you get that part plus a clear *Not in your context* line for the rest.
 - **Incremental Notion sync.** A run history records every ingested page and its Notion edit time. Unchanged pages are never rewritten, edits and renames are picked up, and large workspaces sync in resumable batches.
+- **Notion databases.** Each database becomes one index file with every row and column in a table, so questions like "what's still in progress?" are answered from a single file. Rows with notes also get their own file. Unchanged rows are skipped without being fetched.
 - **Feedback loop.** 👍/👎 under every answer. On 👎 you write what was missing; it becomes a note in `context/feedback/` that future answers use and prefer over Notion.
 - **Secret redaction.** Passwords, API keys and tokens are replaced with `[REDACTED]` before anything is stored, in two independent layers.
 - **Least privilege.** Answering runs with read-only file tools and no network or connectors. Syncing can read Notion and write only inside `context/notion/`.
@@ -112,7 +113,7 @@ Then run `claude` in this folder, type `/mcp`, select **notion** and sign in thr
 
 The skill and the server accept both (`mcp__claude_ai_Notion__*` and `mcp__notion__*`). If neither is connected, a sync stops with a message explaining how to connect.
 
-**Choosing what to sync.** `.kb/sources.json` lists root pages. Each root is synced with all its sub-pages and database rows:
+**Choosing what to sync.** `.kb/sources.json` lists root pages. Each root, a page or a database, is synced with all its sub-pages and databases:
 
 ```json
 {
@@ -146,7 +147,7 @@ claude -p "/kb-answer how do we handle expense receipts?" --allowedTools "Read,G
 ```
 
 ```bash
-claude -p "/kb-sync" --allowedTools "Read,Edit(./context/notion/**),Bash(node scripts/kb-state.mjs *),mcp__claude_ai_Notion__notion-fetch,mcp__claude_ai_Notion__notion-query-data-sources"
+claude -p "/kb-sync" --allowedTools "Read,Edit(./context/notion/**),Edit(./.kb/incoming/**),Bash(node scripts/kb-state.mjs *),mcp__claude_ai_Notion__notion-fetch,mcp__claude_ai_Notion__notion-query-data-sources"
 ```
 
 Inspect the run history:
@@ -180,12 +181,25 @@ Each sync run:
 |---|---|
 | `.kb/sync-state.json` | Every ingested page: title, URL, file, `last_edited`, run id |
 | `.kb/sync-runs.jsonl` | One line per run: new, changed, unchanged, failed, pending, redactions, status |
-| `.kb/sync-queue.json` | Pages still to visit after a run hit `max_pages` |
+| `.kb/sync-queue.json` | Pages and database rows still to visit after a run hit `max_pages` |
+| `.kb/incoming/` | Database rows handed from Claude to the script during a sync; emptied as they are processed |
 | `.kb/feedback.jsonl` | Ratings with question, answer and cited sources; notes you added |
 
 Run statuses: `ok`, `partial` (some pages failed), `incomplete` (batch limit reached, run again), `aborted` (stopped or crashed; recorded pages are kept).
 
 Pages deleted in Notion are reported under *No longer found in Notion* after a complete pass. Their local files are kept until you delete them.
+
+### Databases
+
+A database found in the walk, or listed as a root, is handled in one pass:
+
+1. Claude lists every row through the database's default view (100 rows per call) and hands the rows to `kb-state.mjs database`.
+2. The script writes `context/notion/<database>-<id>.md`: frontmatter with `type: database`, then one Markdown table with a linked title, every column, and a *Page* column pointing to the row's own file when it has one. Secrets in cells are redacted.
+3. Each row's edit time (the database's *last edited time* property) is compared with the run history. **Unchanged rows are skipped without being fetched**, so a 500-row database with two edits costs a few queries and two fetches.
+4. New or changed rows are fetched within the `max_pages` budget, and the rest are queued for the next run. A row with notes gets its own file, with its properties listed under its heading. A row with no body lives only in the index.
+5. `finish` rebuilds the index, so it links to row files written during the run. Rows deleted from the database disappear from the index, and are reported after a complete pass.
+
+Column values in the index are updated on every sync, even for rows that weren't fetched again.
 
 ## Security and privacy
 
@@ -198,7 +212,7 @@ Pages deleted in Notion are reported under *No longer found in Notion* after a c
 | Run | Tools allowed |
 |---|---|
 | `kb-answer` | `Read`, `Glob`, `Grep`. No shell, no file edits, no web, no MCP servers (`--strict-mcp-config`). |
-| `kb-sync` | Notion `fetch` and `query-data-sources`, `Read`, writes limited to `context/notion/**`, and only `node scripts/kb-state.mjs …` in the shell. |
+| `kb-sync` | Notion `fetch` and `query-data-sources`, `Read`, writes limited to `context/notion/**` and `.kb/incoming/**`, and only `node scripts/kb-state.mjs …` in the shell. |
 | Whole project | `WebSearch` and `WebFetch` denied in [`.claude/settings.json`](.claude/settings.json). |
 
 **Prompt injection.** Synced text is treated as data, and both skills say so explicitly. The permissions above limit the damage if a page does contain hostile instructions: the answering run can't write or reach the network, and the sync run can only write Markdown files into `context/notion/`.
@@ -247,7 +261,7 @@ npm test
 
 The suites use only `node:test` and never call Claude or Notion:
 
-- **`kb-state`:** new, unchanged and changed pages; renames; files deleted locally; refusing unwritten files; capped runs and resuming; missing-page detection only after a complete pass; abort and crash recovery.
+- **`kb-state`:** new, unchanged and changed pages; renames; files deleted locally; refusing unwritten files; capped runs and resuming; missing-page detection only after a complete pass; abort and crash recovery; database indexes (row files vs. index-only rows, skipping unchanged rows, property updates, the fetch budget, deleted rows, escaping and redaction in cells, view ids ignored in URLs).
 - **`redact`:** each secret family, labelled and env-style values, URL parameters, and look-alikes that must survive (Notion ids, links, "projet secret" titles, ordinary prose).
 - **`server`:** host, origin and content-type guards; input validation; routing.
 
@@ -267,6 +281,7 @@ To work on the UI, run `npm start`. The server reads `public/index.html` on ever
 
 - **Every sync re-reads every page in scope** to get its edit time, because the Notion connector has no "changed since" query. Only changed pages are written, but a large scope still costs time and tokens. Prefer specific root pages over a whole workspace.
 - **Text only.** Images and attachments aren't ingested.
+- **Databases are read through their default view.** If that view has filters, filtered-out rows are not synced. Use an unfiltered default view, or add the rows' parent page as a root. Without a *last edited time* property, every row is fetched on each sync to read its edit time.
 - **Search, not retrieval.** Answering reads files directly, which works well up to a few hundred pages.
 - **Deleted pages are reported, not removed** from `context/notion/`.
 - **Redaction is best-effort.** It is pattern- and model-based, not a guarantee. Review what you sync.

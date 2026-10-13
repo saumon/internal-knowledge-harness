@@ -26,7 +26,7 @@ const ASK_ARGS = [
 ];
 const SYNC_ARGS = [
   '--allowedTools', [
-    'Read', 'Edit(./context/notion/**)', 'Bash(node scripts/kb-state.mjs *)',
+    'Read', 'Edit(./context/notion/**)', 'Edit(./.kb/incoming/**)', 'Bash(node scripts/kb-state.mjs *)',
     'mcp__claude_ai_Notion__notion-fetch', 'mcp__claude_ai_Notion__notion-query-data-sources',
     'mcp__notion__notion-fetch', 'mcp__notion__notion-query-data-sources',
   ].join(','),
@@ -213,12 +213,15 @@ function titleForId(id) {
 
 function describeSyncTool({ name, input }) {
   if (name.endsWith('notion-fetch')) return { kind: 'fetch', text: 'Reading a page in Notion' };
-  if (name.endsWith('notion-query-data-sources')) return { kind: 'fetch', text: 'Listing database rows in Notion' };
+  if (name.endsWith('notion-query-data-sources')) return { kind: 'info', text: 'Listing database rows in Notion' };
+  if (name === 'Write' && /\.kb\/incoming\//.test(input.file_path || '')) return { kind: 'info', text: 'Collecting database rows' };
   if (name !== 'Bash') return null;
   const cmd = input.command || '';
   let m;
   if ((m = cmd.match(/kb-state\.mjs record \S+ \S+ (?:"([^"]*)"|'([^']*)')/))) return { kind: 'saved', text: `Saved “${m[1] ?? m[2]}”` };
   if ((m = cmd.match(/kb-state\.mjs skip (\S+)/))) return { kind: 'skipped', text: `Unchanged “${titleForId(m[1]) || m[1]}”` };
+  if ((m = cmd.match(/kb-state\.mjs record-empty (\S+)/))) return { kind: 'saved', text: `Saved “${titleForId(m[1]) || m[1]}” to its database index` };
+  if (/kb-state\.mjs database /.test(cmd)) return { kind: 'info', text: 'Indexing a database; unchanged rows are skipped' };
   if ((m = cmd.match(/kb-state\.mjs fail (\S+) (.*)/))) return { kind: 'failed', text: `Failed: ${m[2]}` };
   if (/kb-state\.mjs pending/.test(cmd)) return { kind: 'info', text: 'Batch limit reached; the rest is saved for the next sync' };
   if (/kb-state\.mjs start/.test(cmd)) return { kind: 'info', text: 'Sync started' };
